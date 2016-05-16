@@ -31,18 +31,16 @@ ack_loss_ratio = 0.2
 recv_buffer = ""
 send_buffer = ""
 SEQ_SIZE = 21
-TIME_LIMIT = 20
+TIME_LIMIT = 5
 serverAddr = (serverName, serverPort)
 fp = open('recv.txt', 'w')
 #Sequence size 
 SEQ_SIZE = 20
 isRun = True
 printTips()
+random.seed()
 while (isRun):
     command = raw_input("Please enter command\n")
-#    clientSocket.sendto(command, serverAddr)
-#    recv_buffer, recv_addr = clientSocket.recvfrom(BUFFER_LENGTH)
-#    print recv_buffer
     if(command == "-testgbn"):
         #start test gbn 
         print "Begin to test GBN protocol, please don't abort the process"
@@ -80,11 +78,11 @@ while (isRun):
                     expect_seq = (expect_seq + 1)
                     if (expect_seq == SEQ_SIZE):
                         expect_seq = 1
-                    print "recv data: %s" % recv_buffer[1:]
+                    #print "recv data: %s" % recv_buffer[1:]
                     fp.write(recv_buffer[1:])
                     #write to file
                     #send back ack 
-                    send_buffer = chr(seq_recv) + send_buffer[1:]
+                    send_buffer = chr(seq_recv)
                     last_seq = seq_recv
                 else:
                     #packet is not expected, send last ack number 

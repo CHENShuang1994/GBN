@@ -13,14 +13,14 @@ def seqIsAvailable():
     if (nextseqnum>=base):
         if (nextseqnum-base<=SEND_WIND_SIZE-1 and isACK[nextseqnum]):
             return True
-    elif (nextseqnum+SEQ_SIZE-base<=SEND_WIND-1 and isACK[nextseqnum]):
+    elif (nextseqnum+SEQ_SIZE-base<=SEND_WIND_SIZE-1 and isACK[nextseqnum]):
         return True
     return False 
 
 def AckHandle(str_num):
-    global base, isACK, SEQ_SIZE
+    global base, isACK, SEQ_SIZE, nextseqnum
     ackn = ord(str_num) - 1
-    print "Recv a packet of seq: %d" % ackn
+    print "Recv a ack seq: %d" % ackn
     if (base <= ackn):
         #accumulative ack
         for i in range(base, ackn+1):
@@ -33,16 +33,29 @@ def AckHandle(str_num):
         for i in range(0, ackn+1):
             isACK[i] = True
         base = ackn+1
+    print "base is %d" % base
+    print "nextseqnum is %d" % nextseqnum
 
 def retransmit():
     #may have problems
     global base, nextseqnum, isACK, total_seq, SEND_WIND_SIZE, SEQ_SIZE
+    print "start retransmission"
+    print "before retransmission total_seq = %d" % total_seq
     #set ack True for sending purpose 
-    for i in range(SEND_WIND_SIZE):
+#    for i in range(SEND_WIND_SIZE):
+#        isACK[(i+base)%SEQ_SIZE] = True
+#    nextseqnum = base
+#    total_seq = total_seq - SEND_WIND_SIZE
+    if (nextseqnum >= base):
+        step = nextseqnum - base
+    else:
+        step = nextseqnum + SEQ_SIZE - base
+    for i in range(step):
         isACK[(i+base)%SEQ_SIZE] = True
+    print "step is %d" % step 
+    total_seq = total_seq - step 
+    print "after retransmit total_seq = %d" % total_seq
     nextseqnum = base
-    total_seq = total_seq - SEND_WIND_SIZE
-    
     
 #parameter definition
 #send data domain size 
@@ -50,7 +63,7 @@ BUFFER_LENGTH = 1024
 SEND_LENGTH = 1000
 recv_buffer = ""
 send_buffer = ""
-timeout_in_seconds = 0.1
+timeout_in_seconds = 0.01
 #Sequence size 
 SEQ_SIZE = 20
 SEND_WIND_SIZE = 10
@@ -63,7 +76,7 @@ nextseqnum = 0
 total_seq = 0
 isFinished = False
 def main():
-    global BUFFER_LENGTH, recv_buffer, send_buffer, timeout_in_seconds, SEQ_SIZE, serverPort, isACK, nextseqnum, base, isFinished
+    global BUFFER_LENGTH, recv_buffer, send_buffer, timeout_in_seconds, SEQ_SIZE, serverPort, isACK, nextseqnum, base, isFinished, total_seq
     #set serverSocket is nonblocking 
     fp = open("test.txt", "r")
     content = ''.join(fp.readlines())
@@ -77,7 +90,7 @@ def main():
             recv_buffer, clientAddr = serverSocket.recvfrom(BUFFER_LENGTH)
         else:
             # receives the data from client 
-            time.sleep(1)
+            time.sleep(0.5)
             continue
         #command receive 
         print "recv command from client %s" % recv_buffer 
@@ -98,7 +111,7 @@ def main():
                     #sender A 
                     send_buffer = "A"
                     serverSocket.sendto(send_buffer, clientAddr)
-                    time.sleep(1)
+                    time.sleep(0.5)
                     stage = 1
                 elif (stage == 1):
                     #wait for receive "B"
@@ -118,14 +131,14 @@ def main():
                             #connection failed 
                             isRun = False
                             print "Connection setup timeout!"
-                        time.sleep(1)
+                        time.sleep(0.5)
                         continue 
                 elif (stage == 2):
                     #send one packet each time
                     if (seqIsAvailable()):
+                        print "total_seq = %d, base = %d, nextseqnum = %d" % (total_seq, base, nextseqnum)
                         #send data 
-                        send_buffer = chr(nextseqnum+1) 
-                        isACK[nextseqnum] = False
+                        #since 0 indicates error transmission
                         #send data 
                         if (total_seq*SEND_LENGTH > len(content)):
                             print 'total_seq is %d' % total_seq
@@ -134,14 +147,15 @@ def main():
                                 #send finished 
                                 isFinished = True
                                 break
-                            else:
-                                continue
-                        send_buffer += content[total_seq*SEND_LENGTH:(total_seq+1)*SEND_LENGTH]
-                        print "Send a packet with a sequence of %d\n" % nextseqnum
-                        serverSocket.sendto(send_buffer, clientAddr)
-                        nextseqnum = (nextseqnum + 1) % SEQ_SIZE
-                        total_seq = total_seq + 1
-                        time.sleep(1)
+                        else:
+                            send_buffer = chr(nextseqnum+1) 
+                            isACK[nextseqnum] = False
+                            send_buffer += content[total_seq*SEND_LENGTH:(total_seq+1)*SEND_LENGTH-1]
+                            print "Send a packet with a sequence of %d\n" % nextseqnum
+                            serverSocket.sendto(send_buffer, clientAddr)
+                            nextseqnum = (nextseqnum + 1) % SEQ_SIZE
+                            total_seq = total_seq + 1
+                            time.sleep(0.5)
                     #wait for ack 
                     ready = select.select([serverSocket], [], [], timeout_in_seconds)
                     if (ready[0]):
@@ -156,8 +170,7 @@ def main():
                         if (wait_counter > 20): 
                             retransmit()
                             #restrart timer
-                            wait_counter = 0
-                    time.sleep(0.5)                 
+                            wait_counter = 0             
     serverSocket.close()    
     fp.close()
 if __name__ == "__main__":
