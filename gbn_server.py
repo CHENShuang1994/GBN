@@ -150,7 +150,7 @@ def main():
                         else:
                             send_buffer = chr(nextseqnum+1) 
                             isACK[nextseqnum] = False
-                            send_buffer += content[total_seq*SEND_LENGTH:(total_seq+1)*SEND_LENGTH-1]
+                            send_buffer += content[total_seq*SEND_LENGTH:(total_seq+1)*SEND_LENGTH]
                             print "Send a packet with a sequence of %d\n" % nextseqnum
                             serverSocket.sendto(send_buffer, clientAddr)
                             nextseqnum = (nextseqnum + 1) % SEQ_SIZE
